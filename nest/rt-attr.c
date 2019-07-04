@@ -72,6 +72,7 @@ const char * const rta_src_names[RTS_MAX] = {
   [RTS_OSPF_EXT2]	= "OSPF-E2",
   [RTS_BGP]		= "BGP",
   [RTS_PIPE]		= "pipe",
+  [RTS_MSGPIPE]		= "msgpipe",
   [RTS_BABEL]		= "Babel",
   [RTS_RPKI]		= "RPKI",
 };
@@ -1254,7 +1255,7 @@ rta_dump(rta *a)
   static char *rts[] = { "RTS_DUMMY", "RTS_STATIC", "RTS_INHERIT", "RTS_DEVICE",
 			 "RTS_STAT_DEV", "RTS_REDIR", "RTS_RIP",
 			 "RTS_OSPF", "RTS_OSPF_IA", "RTS_OSPF_EXT1",
-			 "RTS_OSPF_EXT2", "RTS_BGP", "RTS_PIPE", "RTS_BABEL" };
+			 "RTS_OSPF_EXT2", "RTS_BGP", "RTS_PIPE", "RTS_MSGPIPE", "RTS_BABEL" };
   static char *rtd[] = { "", " DEV", " HOLE", " UNREACH", " PROHIBIT" };
 
   debug("p=%s uc=%d %s %s%s h=%04x",

@@ -150,6 +150,7 @@ typedef struct rtable {
   list channels;			/* List of attached channels (struct channel) */
   uint addr_type;			/* Type of address data stored in table (NET_*) */
   int pipe_busy;			/* Pipe loop detection */
+  int msgpipe_busy;			/* MsgPipe loop detection */
   int use_count;			/* Number of protocols using this table */
   u32 rt_count;				/* Number of routes in the table */
   struct hostcache *hostcache;
@@ -433,7 +434,8 @@ typedef struct rta {
 #define RTS_BABEL 13			/* Babel route */
 #define RTS_RPKI 14			/* Route Origin Authorization */
 #define RTS_PERF 15			/* Perf checker */
-#define RTS_MAX 16
+#define RTS_MSGPIPE 16     /* Inter-table wormhole and message warp jump */
+#define RTS_MAX 17
 
 #define RTC_UNICAST 0
 #define RTC_BROADCAST 1

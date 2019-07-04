@@ -1427,6 +1427,9 @@ protos_build(void)
 #ifdef CONFIG_PIPE
   proto_build(&proto_pipe);
 #endif
+#ifdef CONFIG_MSGPIPE
+  proto_build(&proto_msgpipe);
+#endif
 #ifdef CONFIG_BGP
   proto_build(&proto_bgp);
 #endif

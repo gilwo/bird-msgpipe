@@ -1,0 +1,27 @@
+# first build cnats:
+
+git clone github.com/nats-io/nats.c.git nats.c.git
+
+cd nats.c
+# no tags for this, but this is the commit id that bird-msgpipe was build with
+git checkout f0d2bb4 
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=../install
+make && make install
+
+# build mpack amalgamation
+git clone github.com/ludocode/mpack.git mpack.git
+cd mpack.git
+# no tags for this, but this is the commit id that bird-msgpipe was build with
+git checkout 5b26983
+./tools/amalgamate.sh
+cd build/amalgamation/src/mpack
+gcc -c mpack.c -o libmpack.a
+
+
+build bird:
+autoreconf
+./configure --with-cnatsdir=/path/to/nats.c.git/ --with-mpackdir=/path/to/mpack/amalgamation/src/
+make
+

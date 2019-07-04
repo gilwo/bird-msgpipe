@@ -30,6 +30,18 @@ AC_ARG_ENABLE([pthreads],
   [enable_pthreads=try]
 )
 
+AC_ARG_ENABLE([libssl],
+  [AS_HELP_STRING([--enable-libssl], [enable Libcrypto support together with msgpipe @<:@try@:>@])],
+  [],
+  [enable_libssl=try]
+)
+
+AC_ARG_ENABLE([libcrypto],
+  [AS_HELP_STRING([--enable-libcrypto], [enable Libcrypto support together with msgpipe @<:@try@:>@])],
+  [],
+  [enable_libcrypto=try]
+)
+
 AC_ARG_ENABLE([libssh],
   [AS_HELP_STRING([--enable-libssh], [enable LibSSH support together with RPKI @<:@try@:>@])],
   [],
@@ -60,6 +72,16 @@ AC_ARG_WITH([runtimedir],
 AC_ARG_WITH([iproutedir],
   [AS_HELP_STRING([--with-iproutedir=PATH], [path to iproute2 config files @<:@/etc/iproute2@:>@])],
   [given_iproutedir="yes"]
+)
+
+AC_ARG_WITH([cnatsdir],
+  [AS_HELP_STRING([--with-cnatsdir=PATH], [path to cnats source dir])],
+  [given_cnatsdir="try"]
+)
+
+AC_ARG_WITH([mpackdir],
+  [AS_HELP_STRING([--with-mpackdir=PATH], [path to mapck source dir ])],
+  [given_mpackdir="try"]
 )
 
 AC_ARG_VAR([FLEX], [location of the Flex program])
@@ -188,6 +210,7 @@ else
     linux*)
       sysdesc=linux
       default_iproutedir="/etc/iproute2"
+      default_cnatsdir="/usr/local"
       ;;
     freebsd*)
       sysdesc=bsd
@@ -239,6 +262,7 @@ AC_SUBST([iproutedir])
 DAEMON_LIBS=
 AC_SUBST(DAEMON_LIBS)
 
+
 if test "$enable_libssh" != no ; then
   AC_CHECK_HEADER([libssh/libssh.h], [true], [fail=yes], [ ])
   AC_CHECK_LIB([ssh], [ssh_connect], [true], [fail=yes])
@@ -271,7 +295,7 @@ if test "$enable_mpls_kernel" != no ; then
   fi
 fi
 
-all_protocols="$proto_bfd babel bgp mrt ospf perf pipe radv rip $proto_rpki static"
+all_protocols="$proto_bfd babel bgp mrt ospf perf pipe msgpipe radv rip $proto_rpki static"
 
 all_protocols=`echo $all_protocols | sed 's/ /,/g'`
 
@@ -285,6 +309,7 @@ AH_TEMPLATE([CONFIG_BGP],	[BGP protocol])
 AH_TEMPLATE([CONFIG_MRT],	[MRT protocol])
 AH_TEMPLATE([CONFIG_OSPF],	[OSPF protocol])
 AH_TEMPLATE([CONFIG_PIPE],	[Pipe protocol])
+AH_TEMPLATE([CONFIG_MSGPIPE],	[MsgPipe protocol])
 AH_TEMPLATE([CONFIG_RADV],	[RAdv protocol])
 AH_TEMPLATE([CONFIG_RIP],	[RIP protocol])
 AH_TEMPLATE([CONFIG_RPKI],	[RPKI protocol])
@@ -302,6 +327,63 @@ for a in $protocols ; do
 done
 AC_MSG_RESULT([ok])
 AC_SUBST([protocols])
+
+msgpipe_exist=`echo "$with_protocols" | sed -e "s/.*,msgpipe,.*/msgpipe/g"`
+if test "$msgpipe_exist" = "msgpipe"; then
+
+    if test "$enable_libcrypto" != no ; then
+        AC_CHECK_LIB([crypto], [connect], [true], [fail=yes])
+
+        if test "$fail" != yes; then
+            LIBS="$LIBS -lcrypto"
+        fi
+    fi
+
+    if test "$enable_libssl" != no ; then
+        AC_CHECK_LIB([ssl], [SSL_CTX_new], [true], [fail=yes])
+
+        if test "$fail" != yes; then
+            LIBS="$LIBS -lssl"
+        fi
+    fi
+
+    if test -n "$given_cnatsdir" ; then
+        cnatsdir=$with_cnatsdir
+    else
+        cnatsdir=$default_cnatsdir
+    fi
+
+    if test -n "$given_mpackdir" ; then
+        mpackdir=$with_mpackdir
+    else
+        AC_MSG_RESULT([no default mpack dir])
+        AC_MSG_ERROR([!!define mpack dir using --with-mpackdir])
+    fi
+
+    CFLAGS="$CFLAGS -I$mpackdir"
+    LDFLAGS="$LDFLAGS -L$mpackdir"
+    AC_CHECK_HEADER([mpack.h], [true], [fail=yes], [ ])
+    AC_CHECK_LIB([mpack], [mpack_writer_init], [true], [fail=yes])
+    if test "$fail" = yes ; then
+        AC_MSG_RESULT([unable to find mpack source dir ])
+        AC_MSG_ERROR([!!check mpack source dir])
+    fi
+    LIBS="-lmpack $LIBS"
+
+    # libprotobuf-c need v1.3 and something not working well with default ... so we build it with what is nats.c is build with
+    LIBS="$LIBS -lprotobuf-c"
+    CFLAGS="$CFLAGS -I$cnatsdir/install/include"
+    LDFLAGS="$LDFLAGS -L$cnatsdir/install/lib -L$cnatsdir/pbuf/lib/linux"
+
+    AC_CHECK_HEADER([nats.h], [true], [fail=yes], [ ])
+    AC_CHECK_LIB([nats_static], [nats_Open], [true], [fail=yes])
+    if test "$fail" = yes ; then
+        AC_MSG_RESULT([unable to find nats_static library])
+        AC_MSG_ERROR([!!check nats_static library])
+    fi
+    LDFLAGS="$LDFLAGS -rdynamic"
+    LIBS="-lnats_static $LIBS -lprotobuf-c -Wl,-rpath,$cnatsdir/pbuf/lib/linux"
+fi
 
 case $sysdesc in
   */linux*)
