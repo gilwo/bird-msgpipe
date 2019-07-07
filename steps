@@ -25,3 +25,84 @@ autoreconf
 ./configure --with-cnatsdir=/path/to/nats.c.git/ --with-mpackdir=/path/to/mpack/amalgamation/src/
 make
 
+
+
+########################
+
+if [[ $(go version)  =~ ^.+go1.12.+$ ]] ; then
+
+    mkdir /tmp/msgpipe-test
+    cd /tmp/message-test
+    
+    git clone https://github.com/nats-io/nats-streaming-server.git nats-streaming-server.git
+    git clone https://github.com/osrg/gobgp gobgp.git
+    git clone https://github.com/ludocode/mpack.git mpack.git
+    git clone https://github.com/nats-io/nats.c.git nats.c.git
+    git clone https://github.com/gilwo/bird-msgpipe.git bird-msgpipe.git
+    
+    cd mpack.git
+    git checkout v1.0
+    ./tools/amalgamate.sh
+    pushd build/amalgamation/src/mpack
+    gcc -c mpack.c -o libmpack.a
+    popd
+    cd ..
+    
+    cd nats.c.git
+    git checkout v1.8.0
+    mkdir build
+    cd build
+    cmake .. -DCMAKE_INSTALL_PREFIX=../install 
+    make && make install
+    cd ../..
+    
+    cd nats-streaming-server.git
+    git checkout v0.15.1
+    go build nats-streaming-server.go
+    cd ..
+    
+    cd gobgp.git
+    git checkout v2.5.0
+    go build -o gobgp cmd/gobgp/*.go
+    go build -o gobgpd cmd/gobgpd/{main,util}.go
+    cd ..
+    
+    cd bird-msgpipe.git
+    git checkout msgpipe
+    autoreconf
+    ./configure --with-cnatsdir=../nats.c.git/ --with-mpackdir=../mpack.git/build/amalgamation/src/mpack/
+    make
+    
+    cd go
+    ./build.sh
+    cd ..
+    
+else
+    
+    echo go1.12 not installed
+fi
+
+sudo DRUSER=$USER PATH=./:../gobgp.git/:../nats-streaming-server.git/:$PATH ./msgpipe_test_env.sh build
+
+# check target table is empty
+./birdc -s bird.ctl sh route table dummy4 all
+
+# run demo with manual route
+./go/demo -H 192.168.30.1 -m 1.1.1.1/32_2.2.2.2 -l debug
+
+#target table should be populated with the above route
+./birdc -s bird.ctl sh route table dummy4 all
+
+# remove the route
+./go/demo -H 192.168.30.1 -m 1.1.1.1/32_0.0.0.0 -l debug
+
+#target table should be empty again
+./birdc -s bird.ctl sh route table dummy4 all
+
+# populate with random selection from source table of piper protocol (valve4)
+./go/demo -H 192.168.30.1 -l debug
+
+#target table should be populated with routes
+/birdc -s bird.ctl sh route table dummy4 all count
+
+
