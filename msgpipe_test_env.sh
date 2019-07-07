@@ -285,10 +285,12 @@ then
     errcheck $GOBGP -u $B1BGPCONTIP mrt inject global mrt.dump
     errcheck $GOBGP -u $B2BGPCONTIP mrt inject global mrt.dump
 
-    # enable msgpipe protocol
-    birdc -s bird.ctl en piper
-
     bgp_set_neighbor
+
+    # enable msgpipe protocol
+    # disable first as sometimes its not working properly
+    birdc -s bird.ctl di piper
+    birdc -s bird.ctl en piper
 
     
     echo ""

@@ -24,7 +24,8 @@ demo require the following
 **require go > 1.12**
 ```bash
 cd go
-./build
+./build.sh
+cd ..
 ```
 
 ## running the environment script

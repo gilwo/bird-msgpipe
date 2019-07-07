@@ -83,6 +83,7 @@ git clone https://github.com/nats-io/nats-streaming-server.git nats-streaming-se
 cd nats-streaming-server.git
 git checkout v0.15.1
 go build nats-streaming-server.go
+cd ..
 ```
 
 ### running nats-streaming-server 
