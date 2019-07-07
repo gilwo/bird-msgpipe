@@ -59,6 +59,7 @@ struct msgpipe_message {
   rte *new;
   rte *old;
   bool is_manual;
+  bool is_withdraw;
 };
 
 #endif

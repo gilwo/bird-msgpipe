@@ -52,6 +52,7 @@ var (
 		LogLevel   string `short:"l" long:"loglevel" description:"global log level" choice:"trace" choice:"debug" choice:"info" choice:"warning" choice:"error" choice:"fatal" choice:"panic"`
 		StanHost   string `short:"H" description:"stan host" hidden:"0"`
 		Manual     string `short:"m" description:"manual publishing or route" hidden:"0"`
+		Clear      bool   `short:"c" description:"clear route table" hidden:"0"`
 	}
 
 	count = 0
@@ -177,36 +178,42 @@ func onMsgData(m *stan.Msg) {
 	)
 	i2 := decodeMsg(m.Data)
 
-	i2.Which = whichAdd
+	pubFunc := func() {
+		dataBuf := &bytes.Buffer{}
+		msgEncoder := msgpack.NewEncoder(dataBuf)
+		msgEncoder.UseJSONTag(true)
+		err := msgEncoder.Encode(i2)
+		if err != nil {
+			clog(log.ErrorLevel, "msgpack encoding failed: %s",
+				func() interface{} { return err })
+		}
+		retStr, err := sc.PublishAsync(pubDataName, dataBuf.Bytes(), func(guid string, err error) {
+			if err != nil {
+				clog(log.ErrorLevel, "publish prefix - ack failed for message guid: %s, %s\n",
+					func() interface{} { return guid },
+					func() interface{} { return err })
+			}
+		})
+		if err != nil {
+			clog(log.ErrorLevel, "publish prefix - failed for message %s (guid: %s), err %s",
+				func() interface{} { return dataBuf },
+				func() interface{} { return retStr },
+				func() interface{} { return err })
+		}
+		clog(log.TraceLevel, "published: \n%v\n%v\n",
+			func() interface{} { return i2 },
+			func() interface{} { return hex.Dump(dataBuf.Bytes()) })
+	}
 
-	count++
-	if count%(rand.Intn(5)+1) == 0 {
-		go func() {
-			dataBuf := &bytes.Buffer{}
-			msgEncoder := msgpack.NewEncoder(dataBuf)
-			msgEncoder.UseJSONTag(true)
-			err := msgEncoder.Encode(i2)
-			if err != nil {
-				clog(log.ErrorLevel, "msgpack encoding failed: %s",
-					func() interface{} { return err })
-			}
-			retStr, err := sc.PublishAsync(pubDataName, dataBuf.Bytes(), func(guid string, err error) {
-				if err != nil {
-					clog(log.ErrorLevel, "publish prefix - ack failed for message guid: %s, %s\n",
-						func() interface{} { return guid },
-						func() interface{} { return err })
-				}
-			})
-			if err != nil {
-				clog(log.ErrorLevel, "publish prefix - failed for message %s (guid: %s), err %s",
-					func() interface{} { return dataBuf },
-					func() interface{} { return retStr },
-					func() interface{} { return err })
-			}
-			clog(log.TraceLevel, "published: \n%v\n%v\n",
-				func() interface{} { return i2 },
-				func() interface{} { return hex.Dump(dataBuf.Bytes()) })
-		}()
+	if Opts.Clear {
+		i2.Which = whichDel
+		go pubFunc()
+	} else {
+		i2.Which = whichAdd
+		count++
+		if count%(rand.Intn(5)+1) == 0 {
+			go pubFunc()
+		}
 	}
 
 	m.Ack()

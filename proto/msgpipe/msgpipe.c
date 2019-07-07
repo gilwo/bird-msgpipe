@@ -192,10 +192,12 @@ mpack_error_t parse_msgpack_element(mpack_reader_t *r, struct msgpipe_message *m
             if (b == WHICH)
             {
               int which_val = (int)mpack_tag_uint_value(&tag);
-              msgp->is_manual = false;
+              msgp->is_manual = msgp->is_withdraw = false;
               debug("which flag: %d\n", which_val);
               if (which_val > 4 || which_val < 1)
                 return mpack_error_invalid;
+              if (which_val == 2)
+                msgp->is_withdraw = true;
               if (which_val == 4)
                 msgp->is_manual = true;
             }
@@ -468,7 +470,7 @@ update_msgp(struct msgpipe_proto *p, struct msgpipe_message *msgp)
   dst->table->msgpipe_busy = 0;
   // now update what we want
   src_ch->table->msgpipe_busy = 1;
-  if (e)
+  if (e && !msgp->is_withdraw)
   {
     debug("adding:\n");
     // rte_dump(e);
